@@ -5,6 +5,7 @@ bash script to test expected behavior
 - bash
 - mqtt
 - milesight device EUI
+- replace .......... with your data
 
 ## RUN
 Terminal 1:
