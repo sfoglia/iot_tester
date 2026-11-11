@@ -270,26 +270,40 @@ ws558_sequence() {
     done
 }
 
+
 ws558_timed() {
     local DEVICE="$1"
-    local N BIT MASK ON_CMD TIMER_CMD
+    local N BIT MASK
+    local ON_RECORD OFF_RECORD COMBINED
 
     for N in {1..8}; do
         BIT=$((1 << (N - 1)))
         printf -v MASK '%02X' "$BIT"
 
-        # TURN ON
-        ON_CMD="08${MASK}${MASK}"
+        # Record 1: ON immediato
+        printf -v ON_RECORD 'FF32000000%s%s' "$MASK" "$MASK"        
 
-        # TURN OFF after ON_SECONDS
-        TIMER_CMD=$(printf 'FF3200%02X00%s00' \
-            "$ON_SECONDS" "$MASK")
+        # Record 2: OFF dopo ON_SECONDS
+        printf -v OFF_RECORD 'FF3200%02X00%s00' \
+            "$ON_SECONDS" "$MASK"
 
-        echo "Relay L${N}: ON for ${ON_SECONDS}s"
+        # Un unico payload binario concatenato
+        COMBINED="${ON_RECORD}${OFF_RECORD}"
 
-        send_hex "$DEVICE" "$ON_CMD" "L${N} ON" || return 1
-        send_hex "$DEVICE" "$TIMER_CMD" "L${N} timed OFF" || return 1
+        echo
+        echo "================================================"
+        echo "WS558 - Relay L${N}"
+        echo "ON duration : ${ON_SECONDS}s"
+        echo "ON record   : ${ON_RECORD}"
+        echo "OFF record  : ${OFF_RECORD}"
+        echo "Combined HEX: ${COMBINED}"
+        echo "================================================"
 
+        # Un solo invio MQTT
+        send_hex "$DEVICE" "$COMBINED" \
+            "L${N} timed ON/OFF" || return 1
+
+        # Intervallo fra i downlink
         sleep $((ON_SECONDS + 1))
     done
 }
