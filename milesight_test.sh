@@ -272,23 +272,28 @@ ws558_sequence() {
 
 ws558_timed() {
     local DEVICE="$1"
-    local N BIT MASK HEX_ON HEX_OFF
-
-    echo "Each relay ON for ${ON_SECONDS} seconds, then OFF."
+    local N BIT MASK ON_CMD TIMER_CMD
 
     for N in {1..8}; do
         BIT=$((1 << (N - 1)))
-        printf -v MASK '%02x' "$BIT"
+        printf -v MASK '%02X' "$BIT"
 
-        HEX_ON="08${MASK}${MASK}"
-        HEX_OFF="08${MASK}00"
+        # TURN ON
+        ON_CMD="08${MASK}${MASK}"
 
-        send_hex "$DEVICE" "$HEX_ON" "WS558 L${N} ON" || return 1
-        sleep "$ON_SECONDS"
-        send_hex "$DEVICE" "$HEX_OFF" "WS558 L${N} OFF" || return 1
-        sleep "$STEP_DELAY"
+        # TURN OFF after ON_SECONDS
+        TIMER_CMD=$(printf 'FF3200%02X00%s00' \
+            "$ON_SECONDS" "$MASK")
+
+        echo "Relay L${N}: ON for ${ON_SECONDS}s"
+
+        send_hex "$DEVICE" "$ON_CMD" "L${N} ON" || return 1
+        send_hex "$DEVICE" "$TIMER_CMD" "L${N} timed OFF" || return 1
+
+        sleep $((ON_SECONDS + 1))
     done
 }
+
 
 ###############################################################################
 # VALVE - ORIGINAL PROTOCOL
